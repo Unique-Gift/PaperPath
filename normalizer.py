@@ -11,7 +11,28 @@ VERSION_PRIORITY = {
     "submitted":       1,
     "unknown":         0
 }
-
+FIDELITY_SCORES = {
+    "published": {
+        "score": 1.0,
+        "label": "Exact match to journal version — identical to what you'd get behind the paywall"
+    },
+    "author_accepted": {
+        "score": 0.85,
+        "label": "Peer-reviewed final draft — same content, minor typesetting differences"
+    },
+    "preprint": {
+        "score": 0.6,
+        "label": "Pre-peer-review version — may differ from final published article"
+    },
+    "submitted": {
+        "score": 0.4,
+        "label": "Early draft — significant differences likely from published version"
+    },
+    "unknown": {
+        "score": 0.2,
+        "label": "Version unknown — verify against published article"
+    },
+}
 # HELPERS
 
 def normalize_version(raw: str) -> str:
@@ -299,12 +320,17 @@ def normalize(
     )
 
     # Deduplicate by URL
+    # Deduplicate by URL and add fidelity scores
     seen_urls = set()
     unique_sources = []
     for s in all_sources:
         url = s.get("url")
         if url and url not in seen_urls:
             seen_urls.add(url)
+            version = s.get("version", "unknown")
+            fidelity = FIDELITY_SCORES.get(version, FIDELITY_SCORES["unknown"])
+            s["fidelity_score"] = fidelity["score"]
+            s["fidelity_label"] = fidelity["label"]
             unique_sources.append(s)
 
     # Sort by version quality (best first)

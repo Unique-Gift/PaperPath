@@ -35,6 +35,8 @@ class FreeSource(BaseModel):
     url: str
     version: str
     legal: bool
+    fidelity_score: float = 0.2
+    fidelity_label: str = "Version unknown"
 
 class AuthorContact(BaseModel):
     name: str
