@@ -14,7 +14,7 @@ VERSION_PRIORITY = {
 FIDELITY_SCORES = {
     "published": {
         "score": 1.0,
-        "label": "Exact match to journal version — identical to what you'd get behind the paywall"
+        "label": "Exact match to journal version"
     },
     "author_accepted": {
         "score": 0.85,
