@@ -8,9 +8,7 @@ import time
 from typing import Optional
 from database import log_api_call
 
-# ------------------------------------------------------------
 # CONFIGURATION
-# ------------------------------------------------------------
 
 UNPAYWALL_EMAIL = os.getenv("UNPAYWALL_EMAIL")
 
@@ -18,11 +16,9 @@ UNPAYWALL_EMAIL = os.getenv("UNPAYWALL_EMAIL")
 API_TIMEOUT = 5.0
 
 
-# ------------------------------------------------------------
 # SOURCE 1: UNPAYWALL
 # Best single source for OA status + free PDF links
 # No API key needed — just an email address
-# ------------------------------------------------------------
 
 async def fetch_unpaywall(doi: str) -> Optional[dict]:
     """
@@ -97,12 +93,9 @@ async def fetch_unpaywall(doi: str) -> Optional[dict]:
         print(f"⚠️  Unpaywall error for {doi}: {e}")
         return None
 
-
-# ------------------------------------------------------------
 # SOURCE 2: OPENALEX
 # Best source for paper metadata + author info + institutions
 # No API key needed
-# ------------------------------------------------------------
 
 async def fetch_openalex(doi: str) -> Optional[dict]:
     """
@@ -200,11 +193,9 @@ async def fetch_openalex(doi: str) -> Optional[dict]:
         return None
 
 
-# ------------------------------------------------------------
 # SOURCE 3: SEMANTIC SCHOLAR
 # Best for CS/AI papers + author manuscripts
 # No API key needed for basic use
-# ------------------------------------------------------------
 
 async def fetch_semantic_scholar(doi: str) -> Optional[dict]:
     """
@@ -277,10 +268,8 @@ async def fetch_semantic_scholar(doi: str) -> Optional[dict]:
         return None
 
 
-# ------------------------------------------------------------
 # PARALLEL FETCHER
 # Fires all 3 sources simultaneously
-# ------------------------------------------------------------
 
 async def fetch_all_sources(doi: str) -> dict:
     """
@@ -330,10 +319,7 @@ async def fetch_all_sources(doi: str) -> dict:
         "partial_result": sources_available < 3
     }
 
-
-# ------------------------------------------------------------
 # HELPERS
-# ------------------------------------------------------------
 
 def normalize_version(version_str: str) -> str:
     """Normalizes version strings from different APIs into our schema types."""
@@ -356,10 +342,7 @@ def extract_domain_from_ror(ror_url: Optional[str]) -> Optional[str]:
     """
     return None
 
-
-# ------------------------------------------------------------
 # TEST — run this file directly to verify all 3 sources work
-# ------------------------------------------------------------
 
 if __name__ == "__main__":
     async def test():

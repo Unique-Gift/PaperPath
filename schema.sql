@@ -1,15 +1,11 @@
--- ============================================================
 -- PaperPath: Institutional Access Detection Schema
--- ============================================================
 -- Core question this schema answers:
 -- "Does institution X have free access to publisher/journal Y?"
--- ============================================================
 
 
--- ------------------------------------------------------------
 -- 1. INSTITUTIONS
 -- Represents any university, library, or research body
--- ------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS institutions (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     name                TEXT NOT NULL,                  -- "Massachusetts Institute of Technology"
@@ -27,10 +23,9 @@ CREATE INDEX IF NOT EXISTS idx_institutions_domain      ON institutions(domain);
 CREATE INDEX IF NOT EXISTS idx_institutions_country     ON institutions(country_code);
 
 
--- ------------------------------------------------------------
 -- 2. PUBLISHERS
 -- Top-level publishing entities (Elsevier, Springer, etc.)
--- ------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS publishers (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     name                TEXT NOT NULL,                  -- "Elsevier"
@@ -40,10 +35,8 @@ CREATE TABLE IF NOT EXISTS publishers (
 );
 
 
--- ------------------------------------------------------------
 -- 3. JOURNALS
 -- Individual journals within a publisher
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS journals (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     publisher_id        INTEGER NOT NULL REFERENCES publishers(id),
@@ -60,10 +53,9 @@ CREATE INDEX IF NOT EXISTS idx_journals_issn_online     ON journals(issn_online)
 CREATE INDEX IF NOT EXISTS idx_journals_publisher       ON journals(publisher_id);
 
 
--- ------------------------------------------------------------
 -- 4. ACCESS AGREEMENTS
 -- The core table — which institution has access to what
--- ------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS access_agreements (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     institution_id      INTEGER NOT NULL REFERENCES institutions(id),
@@ -96,11 +88,9 @@ CREATE INDEX IF NOT EXISTS idx_access_journal           ON access_agreements(jou
 CREATE INDEX IF NOT EXISTS idx_access_end               ON access_agreements(access_end);
 
 
--- ------------------------------------------------------------
 -- 5. PAPERS
 -- Cache of papers we've already looked up
 -- Avoids re-hitting upstream APIs for the same DOI
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS papers (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     doi                 TEXT UNIQUE NOT NULL,            -- "10.1038/nature14299"
@@ -119,10 +109,8 @@ CREATE INDEX IF NOT EXISTS idx_papers_doi               ON papers(doi);
 CREATE INDEX IF NOT EXISTS idx_papers_journal           ON papers(journal_id);
 
 
--- ------------------------------------------------------------
 -- 6. FREE ACCESS SOURCES
 -- All known free/legal versions of a specific paper
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS free_access_sources (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     paper_id            INTEGER NOT NULL REFERENCES papers(id),
@@ -142,10 +130,8 @@ CREATE TABLE IF NOT EXISTS free_access_sources (
 CREATE INDEX IF NOT EXISTS idx_free_sources_paper       ON free_access_sources(paper_id);
 
 
--- ------------------------------------------------------------
 -- 7. AUTHORS
 -- For the author contact fallback feature
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS authors (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     name                TEXT NOT NULL,
@@ -158,9 +144,7 @@ CREATE TABLE IF NOT EXISTS authors (
 CREATE INDEX IF NOT EXISTS idx_authors_orcid            ON authors(orcid);
 
 
--- ------------------------------------------------------------
 -- 8. PAPER AUTHORS (junction table)
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS paper_authors (
     paper_id            INTEGER NOT NULL REFERENCES papers(id),
     author_id           INTEGER NOT NULL REFERENCES authors(id),
@@ -170,10 +154,8 @@ CREATE TABLE IF NOT EXISTS paper_authors (
 );
 
 
--- ------------------------------------------------------------
 -- 9. API CALL LOGS
 -- Tracks upstream API usage for debugging + rate limit mgmt
--- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS api_call_logs (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     source_name         TEXT NOT NULL,                   -- "unpaywall" | "openalex" | "core" etc.
@@ -189,9 +171,7 @@ CREATE INDEX IF NOT EXISTS idx_api_logs_source          ON api_call_logs(source_
 CREATE INDEX IF NOT EXISTS idx_api_logs_called_at       ON api_call_logs(called_at);
 
 
--- ============================================================
 -- SAMPLE DATA — for testing institutional access detection
--- ============================================================
 
 INSERT INTO publishers (name, base_url) VALUES
     ('Elsevier',        'https://www.sciencedirect.com'),

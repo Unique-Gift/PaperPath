@@ -1,10 +1,8 @@
 from typing import Optional
 import time
 
-# ------------------------------------------------------------
 # VERSION PRIORITY
 # Higher number = better version
-# ------------------------------------------------------------
 
 VERSION_PRIORITY = {
     "published":       4,
@@ -14,10 +12,7 @@ VERSION_PRIORITY = {
     "unknown":         0
 }
 
-
-# ------------------------------------------------------------
 # HELPERS
-# ------------------------------------------------------------
 
 def normalize_version(raw: str) -> str:
     """
@@ -54,10 +49,8 @@ def best_source(sources: list) -> Optional[dict]:
     )
 
 
-# ------------------------------------------------------------
 # SOURCE PARSERS
 # Each function extracts what we need from a raw API response
-# ------------------------------------------------------------
 
 def parse_unpaywall(raw: dict) -> dict:
     """
@@ -228,11 +221,8 @@ def parse_semantic_scholar(raw: dict) -> dict:
         "free_sources": free_sources
     }
 
-
-# ------------------------------------------------------------
 # MAIN NORMALIZER
 # Merges parsed results from all 3 sources into one clean output
-# ------------------------------------------------------------
 
 def normalize(
     doi: str,
@@ -361,10 +351,7 @@ def normalize(
     }
 
 
-# ------------------------------------------------------------
 # TEST
-# ------------------------------------------------------------
-
 if __name__ == "__main__":
     import asyncio
     import sys

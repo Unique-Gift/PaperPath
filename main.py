@@ -28,9 +28,7 @@ load_dotenv()
 
 PORT = int(os.getenv("PORT", "4010"))
 
-# ============================================================================
 # PYDANTIC MODELS
-# ============================================================================
 
 class FreeSource(BaseModel):
     source: str
@@ -70,9 +68,7 @@ class PaperAccessResult(BaseModel):
     response_time_ms: int
     timestamp: str
 
-# ============================================================================
 # CONTEXT PROTOCOL MIDDLEWARE
-# ============================================================================
 
 class ContextProtocolAuthMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
@@ -84,9 +80,7 @@ class ContextProtocolAuthMiddleware(Middleware):
             raise ToolError(f"Unauthorized: {e.message}")
         return await call_next(context)
 
-# ============================================================================
 # FASTMCP SERVER
-# ============================================================================
 
 mcp = FastMCP(
     name="paperpath",
@@ -101,9 +95,7 @@ Cross-validates across Unpaywall, OpenAlex, and Semantic Scholar.""",
 
 mcp.add_middleware(ContextProtocolAuthMiddleware())
 
-# ============================================================================
 # TOOL
-# ============================================================================
 
 @mcp.tool(
     name="find_paper_access",
@@ -231,9 +223,8 @@ async def find_paper_access(
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
-# ============================================================================
+
 # HEALTH CHECK
-# ============================================================================
 
 async def health_check(request):
     return JSONResponse({
@@ -245,9 +236,7 @@ async def health_check(request):
         "replaces": "Elsevier/Scopus ($5K-$50K/yr), Web of Science ($10K+/yr)",
     })
 
-# ============================================================================
 # APP
-# ============================================================================
 
 mcp_app = mcp.http_app(path="/mcp")
 

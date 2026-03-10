@@ -9,9 +9,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "paperpath.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 
 
-# ------------------------------------------------------------
 # CORE CONNECTION
-# ------------------------------------------------------------
 
 def get_connection():
     """Returns a SQLite connection with row factory for dict-like access."""
@@ -20,9 +18,7 @@ def get_connection():
     return conn
 
 
-# ------------------------------------------------------------
 # INITIALIZATION
-# ------------------------------------------------------------
 
 def init_db():
     """
@@ -46,10 +42,7 @@ def init_db():
     finally:
         conn.close()
 
-
-# ------------------------------------------------------------
 # CACHE — PAPERS
-# ------------------------------------------------------------
 
 def get_cached_paper(doi: str) -> Optional[dict]:
     """
@@ -232,9 +225,7 @@ def store_paper(doi: str, result: dict, oa_status: str = "closed"):
         conn.close()
 
 
-# ------------------------------------------------------------
 # INSTITUTIONAL ACCESS
-# ------------------------------------------------------------
 
 def get_institutional_access(domain: str) -> Optional[dict]:
     """
@@ -280,9 +271,7 @@ def get_institutional_access(domain: str) -> Optional[dict]:
         conn.close()
 
 
-# ------------------------------------------------------------
 # API CALL LOGGING
-# ------------------------------------------------------------
 
 def log_api_call(
     source: str,

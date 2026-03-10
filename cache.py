@@ -2,9 +2,7 @@ import time
 from typing import Optional
 from database import get_cached_paper, store_paper, log_api_call
 
-# ------------------------------------------------------------
 # CONFIGURATION
-# ------------------------------------------------------------
 
 # Cache duration in seconds based on OA status
 CACHE_TTL = {
@@ -16,10 +14,7 @@ CACHE_TTL = {
     "unknown":  1 * 24 * 60 * 60,  # 1 day   — recheck soon
 }
 
-
-# ------------------------------------------------------------
 # CACHE CHECK
-# ------------------------------------------------------------
 
 def get_from_cache(doi: str) -> Optional[dict]:
     """
@@ -46,9 +41,8 @@ def get_from_cache(doi: str) -> Optional[dict]:
         return None  # Fall through to live API calls
 
 
-# ------------------------------------------------------------
+#
 # CACHE STORE
-# ------------------------------------------------------------
 
 def save_to_cache(doi: str, result: dict, oa_status: str = "unknown"):
     """
@@ -65,14 +59,12 @@ def save_to_cache(doi: str, result: dict, oa_status: str = "unknown"):
         print(f"⚠️  Failed to cache {doi}: {e}")
 
 
-# ------------------------------------------------------------
 # CACHE WRAPPER
 # Cache-aside pattern:
 # 1. Check cache first
 # 2. On miss → call the provided fetch function
 # 3. Store result in cache
 # 4. Return result
-# ------------------------------------------------------------
 
 async def get_with_cache(doi: str, fetch_fn) -> dict:
     """
@@ -116,10 +108,7 @@ async def get_with_cache(doi: str, fetch_fn) -> dict:
             "cached": False
         }
 
-
-# ------------------------------------------------------------
 # CACHE UTILITIES
-# ------------------------------------------------------------
 
 def invalidate_cache(doi: str):
     """
@@ -176,9 +165,7 @@ def get_cache_stats() -> dict:
         return {"error": str(e)}
 
 
-# ------------------------------------------------------------
 # TEST
-# ------------------------------------------------------------
 
 if __name__ == "__main__":
     import asyncio

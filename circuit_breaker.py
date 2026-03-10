@@ -2,9 +2,8 @@ import time
 from typing import Dict
 from database import get_recent_failures, log_api_call
 
-# ------------------------------------------------------------
 # CONFIGURATION
-# ------------------------------------------------------------
+
 
 # How many failures before we open the circuit (skip the source)
 FAILURE_THRESHOLD = 3
@@ -24,14 +23,11 @@ _circuit_state: Dict[str, dict] = {
     "semantic_scholar":  {"state": "CLOSED", "opened_at": None, "reason": None},
 }
 
-
-# ------------------------------------------------------------
 # CIRCUIT STATES
 #
 # CLOSED  → working normally, all calls go through
 # OPEN    → source failed recently, skip it entirely
 # HALF    → recovery timeout passed, try one call to test
-# ------------------------------------------------------------
 
 def get_state(source: str) -> str:
     """Returns the current circuit state for a source."""
@@ -125,10 +121,7 @@ def classify_failure(status_code: int = None, is_timeout: bool = False) -> str:
         return "server_error"
     return "server_error"  # default
 
-
-# ------------------------------------------------------------
 # RESULT AGGREGATION
-# ------------------------------------------------------------
 
 def aggregate_results(results: list, sources: list) -> dict:
     """
@@ -186,9 +179,7 @@ def get_circuit_status() -> dict:
     return status
 
 
-# ------------------------------------------------------------
 # TEST
-# ------------------------------------------------------------
 
 if __name__ == "__main__":
     print("Testing circuit breaker...\n")
