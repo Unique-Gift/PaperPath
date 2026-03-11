@@ -300,23 +300,31 @@ async def fetch_all_sources(doi: str) -> dict:
     if isinstance(semantic_result, Exception):
         print(f"⚠️  Semantic Scholar exception: {semantic_result}")
         semantic_result = None
-
     elapsed = int((time.time() - start) * 1000)
-    sources_available = sum([
-        unpaywall_result is not None,
-        openalex_result is not None,
-        semantic_result is not None
-    ])
-
-    print(f"✅ Sources returned: {sources_available}/3 in {elapsed}ms")
+    sources_available = [
+        name for name, result in [
+            ("unpaywall", unpaywall_result),
+            ("openalex", openalex_result),
+            ("semantic_scholar", semantic_result),
+        ] if result is not None
+    ]   
+    sources_failed = [
+        name for name, result in [
+            ("unpaywall", unpaywall_result),
+            ("openalex", openalex_result),
+            ("semantic_scholar", semantic_result),
+        ] if result is None
+    ]   
+    print(f"✅ Sources returned: {len(sources_available)}/3 in {elapsed}ms")
 
     return {
         "unpaywall": unpaywall_result,
         "openalex": openalex_result,
         "semantic_scholar": semantic_result,
         "sources_available": sources_available,
+        "sources_failed": sources_failed,
         "total_response_time_ms": elapsed,
-        "partial_result": sources_available < 3
+        "partial_result": len(sources_available) < 3
     }
 
 # HELPERS

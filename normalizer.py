@@ -367,7 +367,7 @@ def normalize(
         "free_sources": unique_sources,
         "best_free_version": best,
         "author_contact": author_contact,
-        "sources_queried": sources_available + sources_failed,
+        "sources_queried": list(sources_available or []) + list(sources_failed or []),
         "sources_available": sources_available,
         "sources_failed": sources_failed,
         "partial_result": len(sources_failed) > 0,

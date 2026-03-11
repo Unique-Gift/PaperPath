@@ -39,10 +39,14 @@ class FreeSource(BaseModel):
     fidelity_label: str = "Version unknown"
 
 class AuthorContact(BaseModel):
-    name: str
-    email: str | None
-    orcid: str | None
-    note: str | None
+    name: str | None = None
+    email: str | None = None
+    orcid: str | None = None
+    note: str | None = None
+    institution: str | None = None
+    institution_domain: str | None = None
+    is_corresponding: bool | None = None
+    openalex_id: str | None = None
 
 class InstitutionalAccess(BaseModel):
     detected_institution: str
@@ -152,7 +156,7 @@ async def find_paper_access(
     import time
     start = time.time()
 
-    from sources import query_all_sources
+    from sources import fetch_all_sources
     from normalizer import normalize
     from cache import get_cached_paper, store_paper
     from database import get_institutional_access
@@ -198,10 +202,18 @@ async def find_paper_access(
         )
 
     # Query live sources
-    raw = await query_all_sources(doi)
-    result = normalize(raw, doi)
+    # Query live sources
+    raw = await fetch_all_sources(doi)
+    result = normalize(
+        doi=doi,
+        unpaywall=raw.get("unpaywall"),
+        openalex=raw.get("openalex"),
+        semantic_scholar=raw.get("semantic_scholar"),
+        sources_available=raw.get("sources_available") or [],
+        sources_failed=raw.get("sources_failed") or [],
+        response_time_ms=raw.get("total_response_time_ms", 0)
+    )
     store_paper(doi, result, result.get("oa_status", "unknown"))
-
     elapsed = int((time.time() - start) * 1000)
     free_sources = [FreeSource(**s) for s in result.get("free_sources", [])]
     ac = result.get("author_contact")
