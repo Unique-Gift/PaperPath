@@ -325,9 +325,7 @@ def get_recent_failures(source: str, minutes: int = 5) -> int:
         conn.close()
 
 
-# ------------------------------------------------------------
 # STARTUP CHECK
-# ------------------------------------------------------------
 
 if __name__ == "__main__":
     init_db()

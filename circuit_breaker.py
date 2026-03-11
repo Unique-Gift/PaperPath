@@ -177,35 +177,3 @@ def get_circuit_status() -> dict:
             "reason": circuit["reason"]
         }
     return status
-
-
-# TEST
-
-if __name__ == "__main__":
-    print("Testing circuit breaker...\n")
-
-    # Test 1: Normal operation
-    print("Test 1: Normal operation")
-    print(f"  unpaywall state: {get_state('unpaywall')}")
-    print(f"  should skip: {should_skip('unpaywall')}")
-    record_success("unpaywall")
-    print(f"  after success: {get_state('unpaywall')}\n")
-
-    # Test 2: Simulate failures opening the circuit
-    print("Test 2: Simulating 3 failures")
-    for i in range(3):
-        record_failure("openalex", reason="timeout")
-    print(f"  openalex state after 3 failures: {get_state('openalex')}")
-    print(f"  should skip openalex: {should_skip('openalex')}\n")
-
-    # Test 3: Rate limit
-    print("Test 3: Rate limit failure")
-    record_failure("semantic_scholar", reason="rate_limit")
-    print(f"  semantic_scholar state: {get_state('semantic_scholar')}")
-    print(f"  recovery timeout: {RECOVERY_TIMEOUT['rate_limit']}s\n")
-
-    # Test 4: Full status
-    print("Test 4: Full circuit status")
-    status = get_circuit_status()
-    for source, info in status.items():
-        print(f"  {source}: {info['state']}")

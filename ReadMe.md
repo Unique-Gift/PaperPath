@@ -233,7 +233,7 @@ UNPAYWALL_EMAIL=your@email.com
 - **V2:** Ingest full ESAC registry (1,000+ institutional agreements)
 - **V2:** Add CORE (core.ac.uk) as Source 4 — 200M+ open access papers
 - **V2:** Weekly automated sync for institutional access data
-- **V3:** Author email lookup via ORCID API
+- **V2:** Author email lookup via ORCID API
 
 ---
 
