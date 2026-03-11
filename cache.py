@@ -60,12 +60,6 @@ def save_to_cache(doi: str, result: dict, oa_status: str = "unknown"):
 
 
 # CACHE WRAPPER
-# Cache-aside pattern:
-# 1. Check cache first
-# 2. On miss → call the provided fetch function
-# 3. Store result in cache
-# 4. Return result
-
 async def get_with_cache(doi: str, fetch_fn) -> dict:
     """
     Cache-aside wrapper for any async fetch function.

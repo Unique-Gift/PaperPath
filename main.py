@@ -202,7 +202,6 @@ async def find_paper_access(
         )
 
     # Query live sources
-    # Query live sources
     raw = await fetch_all_sources(doi)
     result = normalize(
         doi=doi,
