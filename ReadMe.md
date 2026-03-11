@@ -211,7 +211,8 @@ curl -X POST http://localhost:4010/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "mcp-session-id: YOUR_SESSION_ID" \
-  -d '{"jsonrpc": "2.0", "method": "tools/call", "id": 2, "params": {"name": "find_paper_access", "arguments": {"doi": "10.1038/s41586-021-03819-2"}}}'
+  -d '{"jsonrpc": "2.0", "method": "tools/call", "id": 2, "params": {"name": "find_paper_access", "arguments": {"doi": "10.1038/s41586-021-03819-2"}}}'\
+  | grep "^data:" | sed 's/^data: //' | jq '.result.structuredContent'
 ```
 
 ---

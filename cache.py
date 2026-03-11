@@ -41,7 +41,6 @@ def get_from_cache(doi: str) -> Optional[dict]:
         return None  # Fall through to live API calls
 
 
-#
 # CACHE STORE
 
 def save_to_cache(doi: str, result: dict, oa_status: str = "unknown"):
