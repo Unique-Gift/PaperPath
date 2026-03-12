@@ -4,7 +4,7 @@
 
 PaperPath is an MCP server that unbundles Elsevier/Scopus ($5K–$50K/yr) and Web of Science ($10K+/yr). Given any DOI or paper title, it returns every legal free access route ranked by how closely each version matches the published article.
 
-Live endpoint: `https://paperpath.up.railway.app`
+Live endpoint: `https://paperpath.up.railway.app/mcp`
 
 ---
 
