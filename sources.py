@@ -8,17 +8,10 @@ import time
 from typing import Optional
 from database import log_api_call
 
-# CONFIGURATION
 
 UNPAYWALL_EMAIL = os.getenv("UNPAYWALL_EMAIL")
 
-# Timeout per source in seconds
 API_TIMEOUT = 5.0
-
-
-# SOURCE 1: UNPAYWALL
-# Best single source for OA status + free PDF links
-# No API key needed — just an email address
 
 async def fetch_unpaywall(doi: str) -> Optional[dict]:
     """
@@ -46,7 +39,6 @@ async def fetch_unpaywall(doi: str) -> Optional[dict]:
 
             data = response.json()
 
-            # Extract the best free location
             best_location = data.get("best_oa_location")
             free_sources = []
 
@@ -58,7 +50,6 @@ async def fetch_unpaywall(doi: str) -> Optional[dict]:
                     "legal": True
                 })
 
-            # Also grab all other OA locations
             for location in data.get("oa_locations", []):
                 url_pdf = location.get("url_for_pdf") or location.get("url")
                 if url_pdf and url_pdf != (best_location or {}).get("url_for_pdf"):
@@ -93,10 +84,6 @@ async def fetch_unpaywall(doi: str) -> Optional[dict]:
         print(f"⚠️  Unpaywall error for {doi}: {e}")
         return None
 
-# SOURCE 2: OPENALEX
-# Best source for paper metadata + author info + institutions
-# No API key needed
-
 async def fetch_openalex(doi: str) -> Optional[dict]:
     """
     Fetches paper metadata, author details, and institutional affiliations.
@@ -125,8 +112,6 @@ async def fetch_openalex(doi: str) -> Optional[dict]:
                 return None
 
             data = response.json()
-
-            # Extract authors with affiliations
             authors = []
             corresponding_author = None
 
@@ -150,11 +135,9 @@ async def fetch_openalex(doi: str) -> Optional[dict]:
                 if authorship.get("is_corresponding") and not corresponding_author:
                     corresponding_author = author
 
-            # If no corresponding author flagged, use first author
             if not corresponding_author and authors:
                 corresponding_author = authors[0]
 
-            # Extract free sources from OpenAlex OA data
             free_sources = []
             oa_data = data.get("open_access", {})
             if oa_data.get("oa_url"):
@@ -192,11 +175,6 @@ async def fetch_openalex(doi: str) -> Optional[dict]:
         print(f"⚠️  OpenAlex error for {doi}: {e}")
         return None
 
-
-# SOURCE 3: SEMANTIC SCHOLAR
-# Best for CS/AI papers + author manuscripts
-# No API key needed for basic use
-
 async def fetch_semantic_scholar(doi: str) -> Optional[dict]:
     """
     Fetches paper data including open access PDF links and author info.
@@ -226,7 +204,6 @@ async def fetch_semantic_scholar(doi: str) -> Optional[dict]:
 
             data = response.json()
 
-            # Extract free PDF if available
             free_sources = []
             oa_pdf = data.get("openAccessPdf")
             if oa_pdf and oa_pdf.get("url"):
@@ -236,8 +213,6 @@ async def fetch_semantic_scholar(doi: str) -> Optional[dict]:
                     "version": "author_accepted",
                     "legal": True
                 })
-
-            # Extract authors
             authors = []
             for author in data.get("authors", []):
                 authors.append({
@@ -266,10 +241,63 @@ async def fetch_semantic_scholar(doi: str) -> Optional[dict]:
         log_api_call("semantic_scholar", doi, None, elapsed, False, str(e))
         print(f"⚠️  Semantic Scholar error for {doi}: {e}")
         return None
+    
+async def resolve_title_to_doi(title: str) -> Optional[str]:
+    """
+    Resolves a paper title to a DOI.
+    Strategy 1: OpenAlex search
+    Strategy 2: Crossref search (better title matching)
+    """
+    clean_title = title.strip()
 
+    async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
 
-# PARALLEL FETCHER
-# Fires all 3 sources simultaneously
+        try:
+            query = " ".join(clean_title.lower().split()[:10])
+            url = f"https://api.openalex.org/works?search={query}&per_page=3"
+            response = await client.get(
+                url,
+                headers={"User-Agent": "PaperPath/1.0 (mailto:amahuniquegift@gmail.com)"}
+            )
+            if response.status_code == 200:
+                results = response.json().get("results", [])
+                query_words = set(clean_title.lower().split()) - {"a", "an", "the", "and", "of", "in", "for", "on", "with", "to"}
+                for result in results:
+                    result_title = (result.get("display_name") or "").lower()
+                    match_count = sum(1 for w in query_words if w in result_title)
+                    if len(query_words) > 0 and match_count / len(query_words) >= 0.6:
+                        doi = result.get("doi", "")
+                        if doi:
+                            print(f"✅ OpenAlex resolved: {doi}")
+                            return doi.replace("https://doi.org/", "")
+        except Exception as e:
+            print(f"⚠️  OpenAlex title resolution failed: {e}")
+
+        try:
+            import urllib.parse
+            encoded = urllib.parse.quote(clean_title)
+            url = f"https://api.crossref.org/works?query.title={encoded}&rows=3"
+            response = await client.get(
+                url,
+                headers={"User-Agent": "PaperPath/1.0 (mailto:amahuniquegift@gmail.com)"}
+            )
+            if response.status_code == 200:
+                items = response.json().get("message", {}).get("items", [])
+                query_words = set(clean_title.lower().split()) - {"a", "an", "the", "and", "of", "in", "for", "on", "with", "to"}
+                for item in items:
+                    titles = item.get("title", [])
+                    item_title = titles[0].lower() if titles else ""
+                    match_count = sum(1 for w in query_words if w in item_title)
+                    if len(query_words) > 0 and match_count / len(query_words) >= 0.4:
+                        doi = item.get("DOI", "")
+                        if doi:
+                            print(f"✅ Crossref resolved: {doi}")
+                            return doi
+        except Exception as e:
+            print(f"⚠️  Crossref title resolution failed: {e}")
+
+    print(f"⚠️  Could not resolve title to DOI: {title}")
+    return None
 
 async def fetch_all_sources(doi: str) -> dict:
     """
@@ -280,15 +308,12 @@ async def fetch_all_sources(doi: str) -> dict:
     print(f"🔍 Querying all sources for DOI: {doi}")
     start = time.time()
 
-    # Fire all 3 simultaneously
     unpaywall_result, openalex_result, semantic_result = await asyncio.gather(
         fetch_unpaywall(doi),
         fetch_openalex(doi),
         fetch_semantic_scholar(doi),
-        return_exceptions=True  # Never let one failure crash the others
+        return_exceptions=True 
     )
-
-    # Convert exceptions to None
     if isinstance(unpaywall_result, Exception):
         print(f"⚠️  Unpaywall exception: {unpaywall_result}")
         unpaywall_result = None
@@ -326,8 +351,6 @@ async def fetch_all_sources(doi: str) -> dict:
         "total_response_time_ms": elapsed,
         "partial_result": len(sources_available) < 3
     }
-
-# HELPERS
 
 def normalize_version(version_str: str) -> str:
     """Normalizes version strings from different APIs into our schema types."""

@@ -28,8 +28,6 @@ load_dotenv()
 
 PORT = int(os.getenv("PORT", "4010"))
 
-# PYDANTIC MODELS
-
 class FreeSource(BaseModel):
     source: str
     url: str
@@ -74,8 +72,6 @@ class PaperAccessResult(BaseModel):
     response_time_ms: int
     timestamp: str
 
-# CONTEXT PROTOCOL MIDDLEWARE
-
 class ContextProtocolAuthMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         headers = get_http_headers()
@@ -85,8 +81,6 @@ class ContextProtocolAuthMiddleware(Middleware):
         except ContextError as e:
             raise ToolError(f"Unauthorized: {e.message}")
         return await call_next(context)
-
-# FASTMCP SERVER
 
 mcp = FastMCP(
     name="paperpath",
@@ -100,8 +94,6 @@ Cross-validates across Unpaywall, OpenAlex, and Semantic Scholar.""",
 )
 
 mcp.add_middleware(ContextProtocolAuthMiddleware())
-
-# TOOL
 
 @mcp.tool(
     name="find_paper_access",
@@ -120,13 +112,13 @@ Examples:
 - Title: "Attention Is All You Need"
 - With institution: doi + institution_domain "mit.edu"
 
-Replaces: Elsevier ScienceDirect ($50K/yr), Web of Science ($10K/yr)""",
+Replaces: Elsevier ScienceDirect, Web of Science""",
     meta={
         "surface": "both",
         "queryEligible": True,
         "latencyClass": "fast",
         "pricing": {
-            "executeUsd": "0.001",
+            "execute_price_usd": "0.001",
         },
         "rateLimit": {
             "maxRequestsPerMinute": 60,
@@ -163,20 +155,17 @@ async def find_paper_access(
 
     if not doi and not title:
         raise ToolError("Provide either a DOI or a paper title")
-
-    # Resolve title to DOI if needed
+    
     if not doi and title:
         from sources import resolve_title_to_doi
         doi = await resolve_title_to_doi(title)
         if not doi:
             raise ToolError(f"Could not find a DOI for title: {title}")
 
-    # Check institutional access
     institutional_access = None
     if institution_domain:
         institutional_access = get_institutional_access(institution_domain)
 
-    # Check cache
     cached = get_cached_paper(doi)
     if cached:
         elapsed = int((time.time() - start) * 1000)
@@ -201,7 +190,6 @@ async def find_paper_access(
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-    # Query live sources
     raw = await fetch_all_sources(doi)
     result = normalize(
         doi=doi,
@@ -236,9 +224,6 @@ async def find_paper_access(
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
-
-# HEALTH CHECK
-
 async def health_check(request):
     return JSONResponse({
         "status": "healthy",
@@ -248,8 +233,6 @@ async def health_check(request):
         "tools": ["find_paper_access"],
         "replaces": "Elsevier/Scopus ($5K-$50K/yr), Web of Science ($10K+/yr)",
     })
-
-# APP
 
 mcp_app = mcp.http_app(path="/mcp")
 

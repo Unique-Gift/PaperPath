@@ -4,21 +4,16 @@ import os
 from datetime import datetime
 from typing import Optional
 
-# Path to your SQLite database file
 DB_PATH = os.path.join(os.path.dirname(__file__), "paperpath.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 
 
-# CORE CONNECTION
-
 def get_connection():
     """Returns a SQLite connection with row factory for dict-like access."""
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # lets you access columns by name
+    conn.row_factory = sqlite3.Row 
     return conn
 
-
-# INITIALIZATION
 
 def init_db():
     """
@@ -41,8 +36,6 @@ def init_db():
         raise
     finally:
         conn.close()
-
-# CACHE — PAPERS
 
 def get_cached_paper(doi: str) -> Optional[dict]:
     """
@@ -80,7 +73,6 @@ def get_cached_paper(doi: str) -> Optional[dict]:
             (row["id"],)
         ).fetchall()
 
-        # Fetch corresponding author
         author = conn.execute(
             """
             SELECT a.name, a.email, a.orcid
@@ -125,7 +117,6 @@ def store_paper(doi: str, result: dict, oa_status: str = "closed"):
     Stores a paper result in the cache.
     Cache duration depends on OA status.
     """
-    # Determine cache expiry based on OA status
     expiry_map = {
         "gold":   "datetime('now', '+30 days')",
         "green":  "datetime('now', '+30 days')",
@@ -137,7 +128,7 @@ def store_paper(doi: str, result: dict, oa_status: str = "closed"):
 
     conn = get_connection()
     try:
-        # Upsert paper
+
         conn.execute(
             f"""
             INSERT INTO papers (doi, title, is_open_access, oa_status, cached_at, cache_expires_at)
@@ -158,13 +149,11 @@ def store_paper(doi: str, result: dict, oa_status: str = "closed"):
         )
         conn.commit()
 
-        # Get the paper id
         paper_id = conn.execute(
             "SELECT id FROM papers WHERE doi = ?",
             (doi.lower().strip(),)
         ).fetchone()["id"]
 
-        # Store free sources
         if result.get("free_sources"):
             conn.execute(
                 "DELETE FROM free_access_sources WHERE paper_id = ?",
@@ -186,7 +175,6 @@ def store_paper(doi: str, result: dict, oa_status: str = "closed"):
                     )
                 )
 
-        # Store author contact
         if result.get("author_contact"):
             author = result["author_contact"]
             conn.execute(
@@ -224,8 +212,6 @@ def store_paper(doi: str, result: dict, oa_status: str = "closed"):
     finally:
         conn.close()
 
-
-# INSTITUTIONAL ACCESS
 
 def get_institutional_access(domain: str) -> Optional[dict]:
     """
@@ -269,9 +255,6 @@ def get_institutional_access(domain: str) -> Optional[dict]:
 
     finally:
         conn.close()
-
-
-# API CALL LOGGING
 
 def log_api_call(
     source: str,
@@ -323,9 +306,6 @@ def get_recent_failures(source: str, minutes: int = 5) -> int:
 
     finally:
         conn.close()
-
-
-# STARTUP CHECK
 
 if __name__ == "__main__":
     init_db()

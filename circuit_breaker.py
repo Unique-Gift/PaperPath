@@ -2,20 +2,14 @@ import time
 from typing import Dict
 from database import get_recent_failures, log_api_call
 
-# CONFIGURATION
 
-
-# How many failures before we open the circuit (skip the source)
 FAILURE_THRESHOLD = 3
-
-# How long to keep the circuit OPEN before trying again (seconds)
 RECOVERY_TIMEOUT = {
-    "timeout":    60,   # Source took too long
-    "rate_limit": 300,  # We got a 429 — back off for 5 minutes
-    "server_error": 120 # Source returned 500
+    "timeout":    60, 
+    "rate_limit": 300, 
+    "server_error": 120 
 }
 
-# In-memory state for each source
 # Structure: { "unpaywall": { "state": "CLOSED", "opened_at": None, "reason": None } }
 _circuit_state: Dict[str, dict] = {
     "unpaywall":         {"state": "CLOSED", "opened_at": None, "reason": None},
@@ -23,8 +17,6 @@ _circuit_state: Dict[str, dict] = {
     "semantic_scholar":  {"state": "CLOSED", "opened_at": None, "reason": None},
 }
 
-# CIRCUIT STATES
-#
 # CLOSED  → working normally, all calls go through
 # OPEN    → source failed recently, skip it entirely
 # HALF    → recovery timeout passed, try one call to test
@@ -36,12 +28,10 @@ def get_state(source: str) -> str:
         return "CLOSED"
 
     if circuit["state"] == "OPEN":
-        # Check if recovery timeout has passed
         recovery = RECOVERY_TIMEOUT.get(circuit["reason"], 60)
         elapsed = time.time() - (circuit["opened_at"] or 0)
 
         if elapsed >= recovery:
-            # Move to HALF — allow one test call
             _circuit_state[source]["state"] = "HALF"
             print(f"⚡ Circuit HALF-OPEN for {source} — testing recovery")
             return "HALF"
@@ -60,8 +50,7 @@ def should_skip(source: str) -> bool:
         print(f"⚡ Circuit OPEN for {source} — skipping")
         return True
 
-    return False  # CLOSED or HALF — allow the call
-
+    return False 
 
 def record_success(source: str):
     """
@@ -89,14 +78,12 @@ def record_failure(source: str, reason: str, status_code: int = None):
 
     reason: "timeout" | "rate_limit" | "server_error"
     """
-    # Track failures in memory
     if not hasattr(record_failure, "_counts"):
         record_failure._counts = {}
     record_failure._counts[source] = record_failure._counts.get(source, 0) + 1
     recent_failures = record_failure._counts[source]
 
     if recent_failures >= FAILURE_THRESHOLD or _circuit_state[source]["state"] == "HALF":
-        # Open the circuit
         _circuit_state[source] = {
             "state": "OPEN",
             "opened_at": time.time(),
@@ -119,9 +106,7 @@ def classify_failure(status_code: int = None, is_timeout: bool = False) -> str:
         return "rate_limit"
     if status_code and status_code >= 500:
         return "server_error"
-    return "server_error"  # default
-
-# RESULT AGGREGATION
+    return "server_error" 
 
 def aggregate_results(results: list, sources: list) -> dict:
     """

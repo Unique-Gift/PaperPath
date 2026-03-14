@@ -2,9 +2,7 @@ import time
 from typing import Optional
 from database import get_cached_paper, store_paper, log_api_call
 
-# CONFIGURATION
 
-# Cache duration in seconds based on OA status
 CACHE_TTL = {
     "gold":    30 * 24 * 60 * 60,  # 30 days — fully open, stable
     "green":   30 * 24 * 60 * 60,  # 30 days — open archive, stable
@@ -14,7 +12,6 @@ CACHE_TTL = {
     "unknown":  1 * 24 * 60 * 60,  # 1 day   — recheck soon
 }
 
-# CACHE CHECK
 
 def get_from_cache(doi: str) -> Optional[dict]:
     """
@@ -38,10 +35,8 @@ def get_from_cache(doi: str) -> Optional[dict]:
 
     except Exception as e:
         print(f"⚠️  Cache lookup failed for {doi}: {e}")
-        return None  # Fall through to live API calls
+        return None 
 
-
-# CACHE STORE
 
 def save_to_cache(doi: str, result: dict, oa_status: str = "unknown"):
     """
@@ -57,8 +52,6 @@ def save_to_cache(doi: str, result: dict, oa_status: str = "unknown"):
     except Exception as e:
         print(f"⚠️  Failed to cache {doi}: {e}")
 
-
-# CACHE WRAPPER
 async def get_with_cache(doi: str, fetch_fn) -> dict:
     """
     Cache-aside wrapper for any async fetch function.
@@ -69,12 +62,10 @@ async def get_with_cache(doi: str, fetch_fn) -> dict:
     Returns cached result immediately on hit.
     On miss, calls fetch_fn(), caches the result, and returns it.
     """
-    # Step 1: Check cache
     cached = get_from_cache(doi)
     if cached:
         return cached
 
-    # Step 2: Cache miss — call the live fetch function
     print(f"🌐 Fetching live data for {doi}")
     start = time.time()
 
@@ -84,7 +75,6 @@ async def get_with_cache(doi: str, fetch_fn) -> dict:
         print(f"✅ Live fetch completed in {elapsed}ms")
 
         if result:
-            # Step 3: Store in cache
             oa_status = result.get("oa_status", "unknown")
             save_to_cache(doi, result, oa_status)
 
@@ -100,8 +90,6 @@ async def get_with_cache(doi: str, fetch_fn) -> dict:
             "free_sources": [],
             "cached": False
         }
-
-# CACHE UTILITIES
 
 def invalidate_cache(doi: str):
     """

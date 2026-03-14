@@ -1,9 +1,6 @@
 from typing import Optional
 import time
 
-# VERSION PRIORITY
-# Higher number = better version
-
 VERSION_PRIORITY = {
     "published":       4,
     "author_accepted": 3,
@@ -33,7 +30,6 @@ FIDELITY_SCORES = {
         "label": "Version unknown — verify against published article"
     },
 }
-# HELPERS
 
 def normalize_version(raw: str) -> str:
     """
@@ -69,10 +65,6 @@ def best_source(sources: list) -> Optional[dict]:
         key=lambda s: VERSION_PRIORITY.get(s.get("version", "unknown"), 0)
     )
 
-
-# SOURCE PARSERS
-# Each function extracts what we need from a raw API response
-
 def parse_unpaywall(raw: dict) -> dict:
     """
     Extracts free sources and OA status from Unpaywall response.
@@ -81,8 +73,6 @@ def parse_unpaywall(raw: dict) -> dict:
         return {}
 
     free_sources = []
-
-    # Best OA location
     best = raw.get("best_oa_location") or {}
     if best.get("url"):
         free_sources.append({
@@ -93,7 +83,6 @@ def parse_unpaywall(raw: dict) -> dict:
             "host_type": best.get("host_type", "unknown")
         })
 
-    # All OA locations
     for loc in raw.get("oa_locations", []):
         url = loc.get("url_for_pdf") or loc.get("url")
         if url and url != (best.get("url_for_pdf") or best.get("url")):
@@ -125,8 +114,6 @@ def parse_openalex(raw: dict) -> dict:
         return {}
 
     free_sources = []
-
-    # Primary location
     primary = raw.get("primary_location") or {}
     landing = primary.get("landing_page_url")
     pdf = primary.get("pdf_url")
@@ -146,7 +133,6 @@ def parse_openalex(raw: dict) -> dict:
             "legal": True
         })
 
-    # Best OA URL
     oa_url = raw.get("open_access", {}).get("oa_url")
     if oa_url and oa_url not in [s["url"] for s in free_sources]:
         free_sources.append({
@@ -155,8 +141,6 @@ def parse_openalex(raw: dict) -> dict:
             "version": "unknown",
             "legal": True
         })
-
-    # Extract corresponding author
     author_contact = None
     for authorship in raw.get("authorships", []):
         if authorship.get("is_corresponding"):
@@ -168,11 +152,10 @@ def parse_openalex(raw: dict) -> dict:
                 "name": author.get("display_name"),
                 "orcid": author.get("orcid"),
                 "institution": inst_name,
-                "email": None  # OpenAlex doesn't expose emails directly
+                "email": None 
             }
             break
 
-    # Fallback: first author if no corresponding author found
     if not author_contact and raw.get("authorships"):
         first = raw["authorships"][0]
         author = first.get("author", {})
@@ -185,7 +168,6 @@ def parse_openalex(raw: dict) -> dict:
             "email": None
         }
 
-    # Extract source/journal info
     source_info = primary.get("source") or {}
 
     return {
@@ -212,7 +194,6 @@ def parse_semantic_scholar(raw: dict) -> dict:
 
     free_sources = []
 
-    # Open access PDF
     oa_pdf = raw.get("openAccessPdf")
     if oa_pdf and oa_pdf.get("url"):
         free_sources.append({
@@ -222,7 +203,6 @@ def parse_semantic_scholar(raw: dict) -> dict:
             "legal": True
         })
 
-    # Author contact
     author_contact = None
     authors = raw.get("authors", [])
     if authors:
@@ -241,9 +221,6 @@ def parse_semantic_scholar(raw: dict) -> dict:
         "author_contact": author_contact,
         "free_sources": free_sources
     }
-
-# MAIN NORMALIZER
-# Merges parsed results from all 3 sources into one clean output
 
 def normalize(
     doi: str,
@@ -265,27 +242,21 @@ def normalize(
     - free_sources:   merged from all, deduplicated, sorted by version quality
     """
 
-    # Parse each raw source
     parsed_unpaywall         = unpaywall         if unpaywall         else {}
     parsed_openalex          = openalex          if openalex          else {}
     parsed_semantic_scholar  = semantic_scholar  if semantic_scholar  else {}
 
-    # --- TITLE ---
     title = (
         parsed_unpaywall.get("title") or
         parsed_openalex.get("title") or
         parsed_semantic_scholar.get("title") or
         "Unknown"
     )
-
-    # --- OA STATUS ---
     oa_status = (
         parsed_unpaywall.get("oa_status") or
         parsed_openalex.get("oa_status") or
         "unknown"
     )
-
-    # --- IS OPEN ACCESS ---
     is_open_access = (
         parsed_unpaywall.get("is_open_access") or
         parsed_openalex.get("is_open_access") or
@@ -293,7 +264,6 @@ def normalize(
         False
     )
 
-    # --- PUBLISHER / JOURNAL ---
     publisher = (
         parsed_unpaywall.get("publisher") or
         parsed_openalex.get("publisher")
@@ -303,24 +273,19 @@ def normalize(
         parsed_openalex.get("journal")
     )
 
-    # --- PUBLISHED DATE ---
     published_date = (
         parsed_unpaywall.get("published_date") or
         parsed_openalex.get("published_date")
     )
 
-    # --- CITATION COUNT ---
     citation_count = parsed_openalex.get("citation_count", 0)
 
-    # --- MERGE FREE SOURCES ---
     all_sources = (
         parsed_unpaywall.get("free_sources", []) +
         parsed_openalex.get("free_sources", []) +
         parsed_semantic_scholar.get("free_sources", [])
     )
 
-    # Deduplicate by URL
-    # Deduplicate by URL and add fidelity scores
     seen_urls = set()
     unique_sources = []
     for s in all_sources:
@@ -333,28 +298,19 @@ def normalize(
             s["fidelity_label"] = fidelity["label"]
             unique_sources.append(s)
 
-    # Sort by version quality (best first)
     unique_sources.sort(
         key=lambda s: VERSION_PRIORITY.get(s.get("version", "unknown"), 0),
         reverse=True
     )
-
-    # --- BEST FREE VERSION ---
     best = best_source(unique_sources)
 
-    # --- AUTHOR CONTACT ---
-    # OpenAlex has institution info, Semantic Scholar has name
     author_contact = (
         parsed_openalex.get("corresponding_author") or
         parsed_openalex.get("author_contact") or
         parsed_semantic_scholar.get("author_contact")
     )
-
-    # Add email hint if we have institution
     if author_contact and not author_contact.get("email"):
         author_contact["note"] = "Email not publicly available — contact via institution or ResearchGate"
-
-    # --- ASSEMBLE FINAL RESPONSE ---
     return {
         "doi": doi,
         "title": title,
