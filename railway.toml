@@ -1,0 +1,7 @@
+[deploy]
+startCommand = "bash startup.sh"
+
+[[crons]]
+name = "esac-weekly-sync"
+schedule = "0 2 * * 1"
+command = "python ingest_esac.py"

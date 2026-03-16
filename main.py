@@ -71,6 +71,7 @@ class PaperAccessResult(BaseModel):
     cached: bool
     response_time_ms: int
     timestamp: str
+    esac_agreements: list = []
 
 class ContextProtocolAuthMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
@@ -162,7 +163,9 @@ async def find_paper_access(
         if not doi:
             raise ToolError(f"Could not find a DOI for title: {title}")
 
+   
     institutional_access = None
+    esac_agreements = []
     if institution_domain:
         institutional_access = get_institutional_access(institution_domain)
 
@@ -201,6 +204,12 @@ async def find_paper_access(
         response_time_ms=raw.get("total_response_time_ms", 0)
     )
     store_paper(doi, result, result.get("oa_status", "unknown"))
+
+    if institution_domain:
+        from database import get_esac_access
+        keyword = institution_domain.split(".")[0]
+        esac_agreements = get_esac_access(keyword)
+
     elapsed = int((time.time() - start) * 1000)
     free_sources = [FreeSource(**s) for s in result.get("free_sources", [])]
     ac = result.get("author_contact")
@@ -222,6 +231,7 @@ async def find_paper_access(
         cached=False,
         response_time_ms=elapsed,
         timestamp=datetime.now(timezone.utc).isoformat(),
+        esac_agreements=esac_agreements,
     )
 
 async def health_check(request):

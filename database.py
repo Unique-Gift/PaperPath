@@ -310,3 +310,44 @@ def get_recent_failures(source: str, minutes: int = 5) -> int:
 if __name__ == "__main__":
     init_db()
     print("Database ready at:", DB_PATH)
+
+def get_esac_access(institution_keyword: str, publisher: str = None) -> list:
+    """
+    Query ESAC registry for active agreements matching an institution name keyword.
+    Returns list of matching agreements.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if publisher:
+        cur.execute("""
+            SELECT publisher, institution, country, start_date, end_date, agreement_url
+            FROM esac_agreements
+            WHERE is_active = 1
+            AND institution LIKE ?
+            AND publisher LIKE ?
+            LIMIT 10
+        """, (f"%{institution_keyword}%", f"%{publisher}%"))
+    else:
+        cur.execute("""
+            SELECT publisher, institution, country, start_date, end_date, agreement_url
+            FROM esac_agreements
+            WHERE is_active = 1
+            AND institution LIKE ?
+            LIMIT 10
+        """, (f"%{institution_keyword}%",))
+
+    rows = cur.fetchall()
+    conn.close()
+    return [
+        {
+            "publisher": r[0],
+            "institution": r[1],
+            "country": r[2],
+            "start_date": r[3],
+            "end_date": r[4],
+            "agreement_url": r[5],
+            "source": "ESAC Registry"
+        }
+        for r in rows
+    ]
