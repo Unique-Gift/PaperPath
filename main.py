@@ -168,7 +168,7 @@ async def find_paper_access(
         default=None,
         examples=["mit.edu", "ox.ac.uk", "harvard.edu"]
     )] = None,
-) -> PaperAccessResult:
+) -> dict:
     """Find every legal free route to a research paper."""
     import time
     start = time.time()
@@ -215,7 +215,7 @@ async def find_paper_access(
             cached=True,
             response_time_ms=elapsed,
             timestamp=datetime.now(timezone.utc).isoformat(),
-        )
+        ).model_dump()
 
     raw = await fetch_all_sources(doi)
     result = normalize(
@@ -256,7 +256,7 @@ async def find_paper_access(
         response_time_ms=elapsed,
         timestamp=datetime.now(timezone.utc).isoformat(),
         esac_agreements=esac_agreements,
-    )
+    ).model_dump()
 
 async def health_check(request):
     return JSONResponse({
