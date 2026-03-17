@@ -263,7 +263,31 @@ async def find_paper_access(
     institutional_access = None
     esac_agreements = []
     if institution_domain:
-        institutional_access = get_institutional_access(institution_domain)
+        from database import get_esac_access
+        keyword = institution_domain.split(".")[0]
+        
+        # ESAC registry is the primary source (1,500+ agreements)
+        esac_agreements = get_esac_access(keyword)
+        
+        if esac_agreements:
+            # Collect all unique publishers from ESAC agreements
+            publishers = list({a.get("publisher", "") for a in esac_agreements if a.get("publisher")})
+            # Find the latest expiry date
+            end_dates = [a.get("end_date") for a in esac_agreements if a.get("end_date")]
+            latest_expiry = max(end_dates) if end_dates else None
+            
+            institutional_access = {
+                "detected_institution": esac_agreements[0].get("institution", keyword),
+                "short_name": keyword.upper(),
+                "has_access": True,
+                "publisher": ", ".join(publishers[:5]) + (f" (+{len(publishers)-5} more)" if len(publishers) > 5 else ""),
+                "agreement_type": "read_and_publish",
+                "expires": latest_expiry,
+                "notes": f"{len(esac_agreements)} active ESAC agreement(s) covering {len(publishers)} publisher(s)",
+            }
+        else:
+            # Fall back to curated institutions table
+            institutional_access = get_institutional_access(institution_domain)
 
     cached = get_cached_paper(doi)
     if cached:
@@ -287,6 +311,7 @@ async def find_paper_access(
             cached=True,
             response_time_ms=elapsed,
             timestamp=datetime.now(timezone.utc).isoformat(),
+            esac_agreements=esac_agreements,
         ))
 
     raw = await fetch_all_sources(doi)
@@ -300,11 +325,6 @@ async def find_paper_access(
         response_time_ms=raw.get("total_response_time_ms", 0)
     )
     store_paper(doi, result, result.get("oa_status", "unknown"))
-
-    if institution_domain:
-        from database import get_esac_access
-        keyword = institution_domain.split(".")[0]
-        esac_agreements = get_esac_access(keyword)
 
     elapsed = int((time.time() - start) * 1000)
     free_sources = [FreeSource(**s) for s in result.get("free_sources", [])]
