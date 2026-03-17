@@ -6,6 +6,7 @@ Given any DOI or paper title, returns every legal free access route
 ranked by version fidelity.
 """
 
+import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -21,6 +22,12 @@ from starlette.applications import Starlette
 from starlette.routing import Mount, Route
 from starlette.responses import JSONResponse
 import uvicorn
+
+# Import MCP types for direct CallToolResult control
+try:
+    from mcp.types import CallToolResult, TextContent
+except ImportError:
+    from fastmcp.types import CallToolResult, TextContent
 
 from ctxprotocol import verify_context_request, ContextError
 
@@ -128,6 +135,28 @@ Replaces: Elsevier ScienceDirect, Web of Science""",
             "maxConcurrency": 5,
         },
     },
+    output_schema={
+        "type": "object",
+        "properties": {
+            "doi": {"type": "string"},
+            "title": {"type": ["string", "null"]},
+            "publisher": {"type": ["string", "null"]},
+            "journal": {"type": ["string", "null"]},
+            "published_date": {"type": ["string", "null"]},
+            "is_open_access": {"type": "boolean"},
+            "oa_status": {"type": "string"},
+            "free_sources": {"type": "array"},
+            "best_free_version": {"type": ["object", "null"]},
+            "author_contact": {"type": ["object", "null"]},
+            "institutional_access": {"type": ["object", "null"]},
+            "esac_agreements": {"type": "array"},
+            "partial_result": {"type": "boolean"},
+            "cached": {"type": "boolean"},
+            "response_time_ms": {"type": "integer"},
+            "timestamp": {"type": "string"}
+        },
+        "required": ["doi", "is_open_access", "oa_status", "free_sources", "partial_result", "cached", "response_time_ms", "timestamp"]
+    }
 )
 
 async def find_paper_access(
@@ -146,7 +175,7 @@ async def find_paper_access(
         default=None,
         examples=["mit.edu", "ox.ac.uk", "harvard.edu"]
     )] = None,
-) -> PaperAccessResult:
+) -> CallToolResult:
     """Find every legal free route to a research paper."""
     import time
     start = time.time()
@@ -177,7 +206,7 @@ async def find_paper_access(
         free_sources = [FreeSource(**s) for s in cached.get("free_sources", [])]
         ac = cached.get("author_contact")
         ia = InstitutionalAccess(**institutional_access) if institutional_access else None
-        return PaperAccessResult(
+        result_obj = PaperAccessResult(
             doi=cached["doi"],
             title=cached.get("title"),
             publisher=None,
@@ -193,6 +222,11 @@ async def find_paper_access(
             cached=True,
             response_time_ms=elapsed,
             timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        result_dict = result_obj.model_dump(mode="json")
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(result_dict))],
+            structuredContent=result_dict,
         )
 
     raw = await fetch_all_sources(doi)
@@ -217,7 +251,7 @@ async def find_paper_access(
     ac = result.get("author_contact")
     ia = InstitutionalAccess(**institutional_access) if institutional_access else None
 
-    return PaperAccessResult(
+    result_obj = PaperAccessResult(
         doi=result.get("doi", doi),
         title=result.get("title"),
         publisher=result.get("publisher"),
@@ -234,6 +268,11 @@ async def find_paper_access(
         response_time_ms=elapsed,
         timestamp=datetime.now(timezone.utc).isoformat(),
         esac_agreements=esac_agreements,
+    )
+    result_dict = result_obj.model_dump(mode="json")
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(result_dict))],
+        structuredContent=result_dict,
     )
 
 async def health_check(request):
