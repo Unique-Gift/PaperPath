@@ -119,7 +119,7 @@ Replaces: Elsevier ScienceDirect, Web of Science""",
         "queryEligible": True,
         "latencyClass": "fast",
         "pricing": {
-            "execute_price_usd": "0.001",
+            "executeUsd": "0.001",
         },
         "rateLimit": {
             "maxRequestsPerMinute": 60,
@@ -127,7 +127,61 @@ Replaces: Elsevier ScienceDirect, Web of Science""",
             "maxConcurrency": 5,
         },
     }
+    @mcp.tool(
+    name="find_paper_access",
+    description="""🎓 Find every legal free route to a research paper.
+
+Given a DOI or paper title, returns all free access options ranked by version quality:
+- published (exact match to journal version)
+- author_accepted (peer-reviewed, minor formatting differences)
+- preprint (pre-peer-review, may differ from final)
+- submitted (early draft)
+
+Also detects institutional access if you provide your institution domain.
+
+Examples:
+- DOI: "10.1038/s41586-021-03819-2"
+- Title: "Attention Is All You Need"
+- With institution: doi + institution_domain "mit.edu"
+
+Replaces: Elsevier ScienceDirect, Web of Science""",
+    meta={
+        "surface": "both",
+        "queryEligible": True,
+        "latencyClass": "fast",
+        "pricing": {
+            "executeUsd": "0.001",
+        },
+        "rateLimit": {
+            "maxRequestsPerMinute": 60,
+            "cooldownMs": 1000,
+            "maxConcurrency": 5,
+        },
+    },
+    output_schema={
+        "type": "object",
+        "properties": {
+            "doi": {"type": "string"},
+            "title": {"type": ["string", "null"]},
+            "publisher": {"type": ["string", "null"]},
+            "journal": {"type": ["string", "null"]},
+            "published_date": {"type": ["string", "null"]},
+            "is_open_access": {"type": "boolean"},
+            "oa_status": {"type": "string"},
+            "free_sources": {"type": "array"},
+            "best_free_version": {"type": ["object", "null"]},
+            "author_contact": {"type": ["object", "null"]},
+            "institutional_access": {"type": ["object", "null"]},
+            "esac_agreements": {"type": "array"},
+            "partial_result": {"type": "boolean"},
+            "cached": {"type": "boolean"},
+            "response_time_ms": {"type": "integer"},
+            "timestamp": {"type": "string"}
+        },
+        "required": ["doi", "is_open_access", "oa_status", "free_sources", "partial_result", "cached", "response_time_ms", "timestamp"]
+    }
 )
+
 async def find_paper_access(
     doi: Annotated[str | None, Field(
         description="Paper DOI (e.g. '10.1038/s41586-021-03819-2')",
@@ -242,6 +296,8 @@ async def health_check(request):
         "framework": "FastMCP",
         "tools": ["find_paper_access"],
         "replaces": "Elsevier/Scopus ($5K-$50K/yr), Web of Science ($10K+/yr)",
+        "esac_agreements": 1548,
+        "esac_last_updated": "2026-03-13",
     })
 
 mcp_app = mcp.http_app(path="/mcp")
