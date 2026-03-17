@@ -48,29 +48,29 @@ class AuthorContact(BaseModel):
 
 class InstitutionalAccess(BaseModel):
     detected_institution: str
-    short_name: str | None
+    short_name: str | None = None
     has_access: bool
-    publisher: str | None
-    agreement_type: str | None
-    expires: str | None
-    notes: str | None
+    publisher: str | None = None
+    agreement_type: str | None = None
+    expires: str | None = None
+    notes: str | None = None
 
 class PaperAccessResult(BaseModel):
     doi: str
-    title: str | None
-    publisher: str | None
-    journal: str | None
-    published_date: str | None
+    title: str | None = None
+    publisher: str | None = None
+    journal: str | None = None
+    published_date: str | None = None
     is_open_access: bool
     oa_status: str
-    free_sources: list[FreeSource]
-    best_free_version: FreeSource | None
-    author_contact: AuthorContact | None
-    institutional_access: InstitutionalAccess | None
-    partial_result: bool
-    cached: bool
-    response_time_ms: int
-    timestamp: str
+    free_sources: list[FreeSource] = []
+    best_free_version: FreeSource | None = None
+    author_contact: AuthorContact | None = None
+    institutional_access: InstitutionalAccess | None = None
+    partial_result: bool = False
+    cached: bool = False
+    response_time_ms: int = 0
+    timestamp: str = ""
     esac_agreements: list = []
 
 class ContextProtocolAuthMiddleware(Middleware):
@@ -128,28 +128,6 @@ Replaces: Elsevier ScienceDirect, Web of Science""",
             "maxConcurrency": 5,
         },
     },
-    output_schema={
-        "type": "object",
-        "properties": {
-            "doi": {"type": "string"},
-            "title": {"type": ["string", "null"]},
-            "publisher": {"type": ["string", "null"]},
-            "journal": {"type": ["string", "null"]},
-            "published_date": {"type": ["string", "null"]},
-            "is_open_access": {"type": "boolean"},
-            "oa_status": {"type": "string"},
-            "free_sources": {"type": "array"},
-            "best_free_version": {"type": ["object", "null"]},
-            "author_contact": {"type": ["object", "null"]},
-            "institutional_access": {"type": ["object", "null"]},
-            "esac_agreements": {"type": "array"},
-            "partial_result": {"type": "boolean"},
-            "cached": {"type": "boolean"},
-            "response_time_ms": {"type": "integer"},
-            "timestamp": {"type": "string"}
-        },
-        "required": ["doi", "is_open_access", "oa_status", "free_sources", "partial_result", "cached", "response_time_ms", "timestamp"]
-    }
 )
 
 async def find_paper_access(
@@ -168,7 +146,7 @@ async def find_paper_access(
         default=None,
         examples=["mit.edu", "ox.ac.uk", "harvard.edu"]
     )] = None,
-) -> dict:
+) -> PaperAccessResult:
     """Find every legal free route to a research paper."""
     import time
     start = time.time()
@@ -215,7 +193,7 @@ async def find_paper_access(
             cached=True,
             response_time_ms=elapsed,
             timestamp=datetime.now(timezone.utc).isoformat(),
-        ).model_dump()
+        )
 
     raw = await fetch_all_sources(doi)
     result = normalize(
@@ -256,7 +234,7 @@ async def find_paper_access(
         response_time_ms=elapsed,
         timestamp=datetime.now(timezone.utc).isoformat(),
         esac_agreements=esac_agreements,
-    ).model_dump()
+    )
 
 async def health_check(request):
     return JSONResponse({
