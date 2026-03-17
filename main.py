@@ -1,5 +1,5 @@
 """
-PaperPath MCP Server (Python + FastMCP)
+PaperPath MCP Server (Python + FastMCP 3.x)
 
 Unbundles Elsevier/Scopus ($5K-$50K/yr) and Web of Science ($10K+/yr).
 Given any DOI or paper title, returns every legal free access route
@@ -8,7 +8,6 @@ ranked by version fidelity.
 
 import json
 import os
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -18,22 +17,20 @@ from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.server.dependencies import get_http_headers
 from fastmcp.exceptions import ToolError
+from fastmcp.tools.tool import ToolResult
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
 from starlette.responses import JSONResponse
 import uvicorn
-
-# Import MCP types for direct CallToolResult control
-try:
-    from mcp.types import CallToolResult, TextContent
-except ImportError:
-    from fastmcp.types import CallToolResult, TextContent
 
 from ctxprotocol import verify_context_request, ContextError
 
 load_dotenv()
 
 PORT = int(os.getenv("PORT", "4010"))
+
+
+# --- Pydantic Models ---
 
 class FreeSource(BaseModel):
     source: str
@@ -80,6 +77,23 @@ class PaperAccessResult(BaseModel):
     timestamp: str = ""
     esac_agreements: list = []
 
+
+# --- Helper: Build a ToolResult with structured_content ---
+
+def _make_tool_result(result_obj: PaperAccessResult) -> ToolResult:
+    """
+    Build a FastMCP ToolResult with both content and structured_content.
+    This ensures Context Protocol sees a proper object in structuredContent.
+    """
+    result_dict = result_obj.model_dump(mode="json")
+    return ToolResult(
+        content=json.dumps(result_dict),
+        structured_content=result_dict,
+    )
+
+
+# --- Auth Middleware ---
+
 class ContextProtocolAuthMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         headers = get_http_headers()
@@ -89,6 +103,9 @@ class ContextProtocolAuthMiddleware(Middleware):
         except ContextError as e:
             raise ToolError(f"Unauthorized: {e.message}")
         return await call_next(context)
+
+
+# --- MCP Server ---
 
 mcp = FastMCP(
     name="paperpath",
@@ -102,6 +119,33 @@ Cross-validates across Unpaywall, OpenAlex, and Semantic Scholar.""",
 )
 
 #mcp.add_middleware(ContextProtocolAuthMiddleware())
+
+
+# --- Output Schema ---
+
+PAPER_ACCESS_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "doi": {"type": "string"},
+        "title": {"type": ["string", "null"]},
+        "publisher": {"type": ["string", "null"]},
+        "journal": {"type": ["string", "null"]},
+        "published_date": {"type": ["string", "null"]},
+        "is_open_access": {"type": "boolean"},
+        "oa_status": {"type": "string"},
+        "free_sources": {"type": "array"},
+        "best_free_version": {"type": ["object", "null"]},
+        "author_contact": {"type": ["object", "null"]},
+        "institutional_access": {"type": ["object", "null"]},
+        "esac_agreements": {"type": "array"},
+        "partial_result": {"type": "boolean"},
+        "cached": {"type": "boolean"},
+        "response_time_ms": {"type": "integer"},
+        "timestamp": {"type": "string"}
+    },
+    "required": ["doi", "is_open_access", "oa_status", "free_sources",
+                  "partial_result", "cached", "response_time_ms", "timestamp"]
+}
 
 
 @mcp.tool(
@@ -135,30 +179,8 @@ Replaces: Elsevier ScienceDirect, Web of Science""",
             "maxConcurrency": 5,
         },
     },
-    output_schema={
-        "type": "object",
-        "properties": {
-            "doi": {"type": "string"},
-            "title": {"type": ["string", "null"]},
-            "publisher": {"type": ["string", "null"]},
-            "journal": {"type": ["string", "null"]},
-            "published_date": {"type": ["string", "null"]},
-            "is_open_access": {"type": "boolean"},
-            "oa_status": {"type": "string"},
-            "free_sources": {"type": "array"},
-            "best_free_version": {"type": ["object", "null"]},
-            "author_contact": {"type": ["object", "null"]},
-            "institutional_access": {"type": ["object", "null"]},
-            "esac_agreements": {"type": "array"},
-            "partial_result": {"type": "boolean"},
-            "cached": {"type": "boolean"},
-            "response_time_ms": {"type": "integer"},
-            "timestamp": {"type": "string"}
-        },
-        "required": ["doi", "is_open_access", "oa_status", "free_sources", "partial_result", "cached", "response_time_ms", "timestamp"]
-    }
+    output_schema=PAPER_ACCESS_OUTPUT_SCHEMA,
 )
-
 async def find_paper_access(
     doi: Annotated[str | None, Field(
         description="Paper DOI (e.g. '10.1038/s41586-021-03819-2')",
@@ -175,7 +197,7 @@ async def find_paper_access(
         default=None,
         examples=["mit.edu", "ox.ac.uk", "harvard.edu"]
     )] = None,
-) -> CallToolResult:
+) -> ToolResult:
     """Find every legal free route to a research paper."""
     import time
     start = time.time()
@@ -194,7 +216,6 @@ async def find_paper_access(
         if not doi:
             raise ToolError(f"Could not find a DOI for title: {title}")
 
-   
     institutional_access = None
     esac_agreements = []
     if institution_domain:
@@ -206,7 +227,7 @@ async def find_paper_access(
         free_sources = [FreeSource(**s) for s in cached.get("free_sources", [])]
         ac = cached.get("author_contact")
         ia = InstitutionalAccess(**institutional_access) if institutional_access else None
-        result_obj = PaperAccessResult(
+        return _make_tool_result(PaperAccessResult(
             doi=cached["doi"],
             title=cached.get("title"),
             publisher=None,
@@ -222,12 +243,7 @@ async def find_paper_access(
             cached=True,
             response_time_ms=elapsed,
             timestamp=datetime.now(timezone.utc).isoformat(),
-        )
-        result_dict = result_obj.model_dump(mode="json")
-        return CallToolResult(
-            content=[TextContent(type="text", text=json.dumps(result_dict))],
-            structuredContent=result_dict,
-        )
+        ))
 
     raw = await fetch_all_sources(doi)
     result = normalize(
@@ -251,7 +267,7 @@ async def find_paper_access(
     ac = result.get("author_contact")
     ia = InstitutionalAccess(**institutional_access) if institutional_access else None
 
-    result_obj = PaperAccessResult(
+    return _make_tool_result(PaperAccessResult(
         doi=result.get("doi", doi),
         title=result.get("title"),
         publisher=result.get("publisher"),
@@ -268,19 +284,17 @@ async def find_paper_access(
         response_time_ms=elapsed,
         timestamp=datetime.now(timezone.utc).isoformat(),
         esac_agreements=esac_agreements,
-    )
-    result_dict = result_obj.model_dump(mode="json")
-    return CallToolResult(
-        content=[TextContent(type="text", text=json.dumps(result_dict))],
-        structuredContent=result_dict,
-    )
+    ))
+
+
+# --- Health & App ---
 
 async def health_check(request):
     return JSONResponse({
         "status": "healthy",
         "service": "paperpath",
         "version": "1.0.0",
-        "framework": "FastMCP",
+        "framework": "FastMCP 3.x",
         "tools": ["find_paper_access"],
         "replaces": "Elsevier/Scopus ($5K-$50K/yr), Web of Science ($10K+/yr)",
         "esac_agreements": 1548,
@@ -299,7 +313,7 @@ app = Starlette(
 
 if __name__ == "__main__":
     print(f"🚀 PaperPath MCP Server starting on port {PORT}")
-    print(f"🔧 Framework: FastMCP")
+    print(f"🔧 Framework: FastMCP 3.x")
     print(f"🎓 Tool: find_paper_access")
     print(f"🔒 Auth: Context Protocol JWT on tools/call only")
     uvicorn.run(app, host="0.0.0.0", port=PORT)
