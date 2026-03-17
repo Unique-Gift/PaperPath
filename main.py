@@ -27,6 +27,10 @@ from ctxprotocol import verify_context_request, ContextError
 
 load_dotenv()
 
+# Initialize database tables on startup
+from database import init_db
+init_db()
+
 PORT = int(os.getenv("PORT", "4010"))
 
 
