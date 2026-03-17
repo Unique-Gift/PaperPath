@@ -96,38 +96,8 @@ Cross-validates across Unpaywall, OpenAlex, and Semantic Scholar.""",
 
 mcp.add_middleware(ContextProtocolAuthMiddleware())
 
+
 @mcp.tool(
-    name="find_paper_access",
-    description="""🎓 Find every legal free route to a research paper.
-
-Given a DOI or paper title, returns all free access options ranked by version quality:
-- published (exact match to journal version)
-- author_accepted (peer-reviewed, minor formatting differences)
-- preprint (pre-peer-review, may differ from final)
-- submitted (early draft)
-
-Also detects institutional access if you provide your institution domain.
-
-Examples:
-- DOI: "10.1038/s41586-021-03819-2"
-- Title: "Attention Is All You Need"
-- With institution: doi + institution_domain "mit.edu"
-
-Replaces: Elsevier ScienceDirect, Web of Science""",
-    meta={
-        "surface": "both",
-        "queryEligible": True,
-        "latencyClass": "fast",
-        "pricing": {
-            "executeUsd": "0.001",
-        },
-        "rateLimit": {
-            "maxRequestsPerMinute": 60,
-            "cooldownMs": 1000,
-            "maxConcurrency": 5,
-        },
-    }
-    @mcp.tool(
     name="find_paper_access",
     description="""🎓 Find every legal free route to a research paper.
 
