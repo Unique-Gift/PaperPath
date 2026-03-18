@@ -351,9 +351,54 @@ async def find_paper_access(
     ))
 
 
+# --- Weekly ESAC Sync ---
+
+import threading
+import sqlite3
+
+def _run_esac_sync():
+    """Run ESAC ingestion, catching all errors so it never crashes the server."""
+    try:
+        from ingest_esac import download_registry, ingest
+        print("🔄 Starting scheduled ESAC registry sync...")
+        data = download_registry()
+        ingest(data)
+        print("✅ ESAC sync complete")
+    except Exception as e:
+        print(f"❌ ESAC sync failed (will retry next week): {e}")
+
+def _esac_sync_loop():
+    """Run ESAC sync on startup, then every 7 days."""
+    import time as _time
+    # Initial sync on startup (give server 30s to settle)
+    _time.sleep(30)
+    _run_esac_sync()
+    # Then every 7 days
+    while True:
+        _time.sleep(7 * 24 * 60 * 60)  # 7 days
+        _run_esac_sync()
+
+# Start the sync thread (daemon=True so it dies with the server)
+_esac_thread = threading.Thread(target=_esac_sync_loop, daemon=True)
+_esac_thread.start()
+
+
 # --- Health & App ---
 
 async def health_check(request):
+    # Dynamic ESAC stats
+    esac_count = 0
+    esac_last_updated = "unknown"
+    try:
+        conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), "paperpath.db"))
+        row = conn.execute("SELECT COUNT(*) FROM esac_agreements WHERE is_active = 1").fetchone()
+        esac_count = row[0] if row else 0
+        row = conn.execute("SELECT MAX(ingested_at) FROM esac_agreements").fetchone()
+        esac_last_updated = row[0] if row and row[0] else "never"
+        conn.close()
+    except Exception:
+        pass
+
     return JSONResponse({
         "status": "healthy",
         "service": "paperpath",
@@ -361,8 +406,8 @@ async def health_check(request):
         "framework": "FastMCP 3.x",
         "tools": ["find_paper_access"],
         "replaces": "Elsevier/Scopus ($5K-$50K/yr), Web of Science ($10K+/yr)",
-        "esac_agreements": 1548,
-        "esac_last_updated": "2026-03-13",
+        "esac_agreements": esac_count,
+        "esac_last_updated": esac_last_updated,
     })
 
 mcp_app = mcp.http_app(path="/mcp")
