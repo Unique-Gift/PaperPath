@@ -27,14 +27,11 @@ from ctxprotocol import verify_context_request, ContextError
 
 load_dotenv()
 
-# Initialize database tables on startup
 from database import init_db
 init_db()
 
 PORT = int(os.getenv("PORT", "4010"))
 
-
-# --- Pydantic Models ---
 
 class FreeSource(BaseModel):
     source: str
@@ -82,7 +79,6 @@ class PaperAccessResult(BaseModel):
     esac_agreements: list = []
 
 
-# --- Helper: Build a ToolResult with structured_content ---
 
 def _make_tool_result(result_obj: PaperAccessResult) -> ToolResult:
     result_dict = result_obj.model_dump(mode="json")
@@ -91,8 +87,6 @@ def _make_tool_result(result_obj: PaperAccessResult) -> ToolResult:
         structured_content=result_dict,
     )
 
-
-# --- Demo response for smoke tests (no args provided) ---
 
 def _demo_response() -> ToolResult:
     """Return a valid demo response when no DOI or title is provided.
@@ -134,8 +128,6 @@ def _demo_response() -> ToolResult:
     return _make_tool_result(demo)
 
 
-# --- Auth Middleware ---
-
 class ContextProtocolAuthMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         headers = get_http_headers()
@@ -146,8 +138,6 @@ class ContextProtocolAuthMiddleware(Middleware):
             raise ToolError(f"Unauthorized: {e.message}")
         return await call_next(context)
 
-
-# --- MCP Server ---
 
 mcp = FastMCP(
     name="paperpath",
@@ -160,10 +150,8 @@ Unbundles Elsevier/Scopus ($5K-$50K/yr) and Web of Science ($10K+/yr).
 Cross-validates across Unpaywall, OpenAlex, and Semantic Scholar.""",
 )
 
-#mcp.add_middleware(ContextProtocolAuthMiddleware())
+mcp.add_middleware(ContextProtocolAuthMiddleware())
 
-
-# --- Output Schema ---
 
 PAPER_ACCESS_OUTPUT_SCHEMA = {
     "type": "object",
@@ -242,7 +230,6 @@ async def find_paper_access(
 ) -> ToolResult:
     """Find every legal free route to a research paper."""
     
-    # If no args provided (e.g. smoke test), return a valid demo response
     if not doi and not title:
         return _demo_response()
     
@@ -266,13 +253,10 @@ async def find_paper_access(
         from database import get_esac_access
         keyword = institution_domain.split(".")[0]
         
-        # ESAC registry is the primary source (1,500+ agreements)
         esac_agreements = get_esac_access(keyword)
         
         if esac_agreements:
-            # Collect all unique publishers from ESAC agreements
             publishers = list({a.get("publisher", "") for a in esac_agreements if a.get("publisher")})
-            # Find the latest expiry date
             end_dates = [a.get("end_date") for a in esac_agreements if a.get("end_date")]
             latest_expiry = max(end_dates) if end_dates else None
             
@@ -286,7 +270,6 @@ async def find_paper_access(
                 "notes": f"{len(esac_agreements)} active ESAC agreement(s) covering {len(publishers)} publisher(s)",
             }
         else:
-            # Fall back to curated institutions table
             institutional_access = get_institutional_access(institution_domain)
 
     cached = get_cached_paper(doi)
@@ -351,8 +334,6 @@ async def find_paper_access(
     ))
 
 
-# --- Weekly ESAC Sync ---
-
 import threading
 import sqlite3
 
@@ -370,23 +351,18 @@ def _run_esac_sync():
 def _esac_sync_loop():
     """Run ESAC sync on startup, then every 7 days."""
     import time as _time
-    # Initial sync on startup (give server 30s to settle)
     _time.sleep(30)
     _run_esac_sync()
-    # Then every 7 days
+
     while True:
-        _time.sleep(7 * 24 * 60 * 60)  # 7 days
+        _time.sleep(7 * 24 * 60 * 60)  
         _run_esac_sync()
 
-# Start the sync thread (daemon=True so it dies with the server)
 _esac_thread = threading.Thread(target=_esac_sync_loop, daemon=True)
 _esac_thread.start()
 
 
-# --- Health & App ---
-
 async def health_check(request):
-    # Dynamic ESAC stats
     esac_count = 0
     esac_last_updated = "unknown"
     try:
