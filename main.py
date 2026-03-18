@@ -150,7 +150,7 @@ Unbundles Elsevier/Scopus ($5K-$50K/yr) and Web of Science ($10K+/yr).
 Cross-validates across Unpaywall, OpenAlex, and Semantic Scholar.""",
 )
 
-mcp.add_middleware(ContextProtocolAuthMiddleware())
+#mcp.add_middleware(ContextProtocolAuthMiddleware())
 
 
 PAPER_ACCESS_OUTPUT_SCHEMA = {
